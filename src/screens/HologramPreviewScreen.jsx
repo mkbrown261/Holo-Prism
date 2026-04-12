@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
+import QRCode from 'qrcode'
 import StarsBg from '../components/StarsBg'
 import HologramDisplay from '../components/HologramDisplay'
 
-export default function HologramPreviewScreen({ appData, onGuide, onOrder, onBack }) {
+export default function HologramPreviewScreen({ appData, onGuide, onOrder, onBack, onGift }) {
   const [viewMode, setViewMode] = useState('screen') // screen | ar
   const [isPlaying, setIsPlaying] = useState(true)
   const [showShare, setShowShare] = useState(false)
   const [recording, setRecording] = useState(false)
   const [shareSuccess, setShareSuccess] = useState('')
+  const [qrDataUrl, setQrDataUrl] = useState(null)
+  const [showQR, setShowQR] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
   const { isDemo, selectedTemplate = 'rocket', customText = 'HAPPY BIRTHDAY', animationStyle = 'sparkle' } = appData || {}
 
   const handleRecord = () => {
@@ -18,10 +22,57 @@ export default function HologramPreviewScreen({ appData, onGuide, onOrder, onBac
     }, 2000)
   }
 
-  const handleShare = (platform) => {
-    setShareSuccess(platform)
-    setTimeout(() => { setShareSuccess(''); setShowShare(false) }, 2000)
+  const fallbackCopy = () => {
+    navigator.clipboard?.writeText('https://holoprism.app').catch(() => {})
+    setShareSuccess('copied')
+    setTimeout(() => { setShareSuccess(''); setShowShare(false) }, 2500)
   }
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'My HoloPrism Hologram',
+      text: `Check out this hologram I made with HoloPrism! 🔮`,
+      url: 'https://holoprism.app',
+    }
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData)
+        setShareSuccess('shared')
+        setTimeout(() => { setShareSuccess(''); setShowShare(false) }, 2000)
+      } catch (e) {
+        if (e.name !== 'AbortError') fallbackCopy()
+      }
+    } else {
+      fallbackCopy()
+    }
+  }
+
+  const generateQR = async () => {
+    const url = `https://holoprism.app/play?t=${selectedTemplate}&txt=${encodeURIComponent(customText)}&s=${animationStyle}`
+    const dataUrl = await QRCode.toDataURL(url, {
+      width: 280,
+      margin: 2,
+      color: { dark: '#a855f7', light: '#05020f' },
+    })
+    setQrDataUrl(dataUrl)
+    setShowQR(true)
+  }
+
+  const downloadQR = () => {
+    const a = document.createElement('a')
+    a.href = qrDataUrl
+    a.download = 'holoprism-qr.png'
+    a.click()
+  }
+
+  const copyQRLink = () => {
+    const url = `https://holoprism.app/play?t=${selectedTemplate}&txt=${encodeURIComponent(customText)}&s=${animationStyle}`
+    navigator.clipboard?.writeText(url).catch(() => {})
+    setCopySuccess(true)
+    setTimeout(() => setCopySuccess(false), 2000)
+  }
+
+  const hasNativeShare = typeof navigator !== 'undefined' && !!navigator.share
 
   return (
     <div className="screen" style={{
@@ -157,7 +208,7 @@ export default function HologramPreviewScreen({ appData, onGuide, onOrder, onBac
         </button>
 
         {/* Action row */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
           <button
             onClick={() => setIsPlaying(p => !p)}
             className="btn-secondary"
@@ -185,7 +236,52 @@ export default function HologramPreviewScreen({ appData, onGuide, onOrder, onBac
           >
             {recording ? '⏺ Rec…' : '📹 Record'}
           </button>
+          <button
+            onClick={generateQR}
+            style={{
+              flex: 1, padding: '12px',
+              borderRadius: '16px',
+              border: '1px solid rgba(251,191,36,0.3)',
+              background: 'rgba(251,191,36,0.06)',
+              color: '#fbbf24',
+              fontFamily: 'var(--font-main)',
+              fontSize: '0.88rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              transition: 'all 0.2s',
+            }}
+          >
+            QR Code
+          </button>
         </div>
+
+        {/* Gift button */}
+        {onGift && (
+          <button
+            onClick={onGift}
+            style={{
+              width: '100%',
+              padding: '13px',
+              borderRadius: '16px',
+              border: '1px solid rgba(244,114,182,0.3)',
+              background: 'rgba(244,114,182,0.06)',
+              color: '#f472b6',
+              fontFamily: 'var(--font-main)',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.25s',
+            }}
+          >
+            🎁 Send as Gift
+          </button>
+        )}
 
         {/* Share sheet */}
         {showShare && (
@@ -194,37 +290,59 @@ export default function HologramPreviewScreen({ appData, onGuide, onOrder, onBac
             borderRadius: '18px',
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid var(--border)',
-            marginBottom: '12px',
+            marginBottom: '10px',
             animation: 'fade-in-up 0.3s ease',
           }}>
             <p style={{ fontFamily: 'var(--font-main)', fontWeight: '600', fontSize: '0.9rem', marginBottom: '12px', textAlign: 'center' }}>
               Share Your Hologram ✨
             </p>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              {[
-                { name: 'TikTok', color: '#010101', bg: 'rgba(255,255,255,0.08)', icon: '🎵' },
-                { name: 'Instagram', color: '#e1306c', bg: 'rgba(225,48,108,0.08)', icon: '📸' },
-                { name: 'Snapchat', color: '#fffc00', bg: 'rgba(255,252,0,0.08)', icon: '👻' },
-              ].map(p => (
-                <button key={p.name} onClick={() => handleShare(p.name)} style={{
-                  flex: 1,
-                  padding: '12px 8px',
+            {hasNativeShare ? (
+              <button
+                onClick={handleShare}
+                style={{
+                  width: '100%',
+                  padding: '14px',
                   borderRadius: '14px',
-                  border: `1px solid ${shareSuccess === p.name ? p.color : 'var(--border)'}`,
-                  background: shareSuccess === p.name ? p.bg : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${shareSuccess ? 'rgba(168,85,247,0.6)' : 'rgba(168,85,247,0.3)'}`,
+                  background: shareSuccess ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.08)',
                   color: 'white',
                   cursor: 'pointer',
                   fontFamily: 'var(--font-main)',
-                  fontSize: '0.78rem',
+                  fontSize: '0.9rem',
                   fontWeight: '600',
                   transition: 'all 0.25s',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                }}>
-                  <span style={{ fontSize: '1.3rem' }}>{p.icon}</span>
-                  <span>{shareSuccess === p.name ? '✓ Shared!' : p.name}</span>
-                </button>
-              ))}
-            </div>
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                }}
+              >
+                {shareSuccess === 'shared' ? '✓ Shared!' : shareSuccess === 'copied' ? '✓ Link copied!' : '📤 Share'}
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                {[
+                  { name: 'Copy Link', icon: '🔗', action: fallbackCopy },
+                  { name: 'TikTok', icon: '🎵', action: () => window.open('https://tiktok.com', '_blank') },
+                  { name: 'Instagram', icon: '📸', action: () => window.open('https://instagram.com', '_blank') },
+                ].map(p => (
+                  <button key={p.name} onClick={p.action} style={{
+                    flex: 1,
+                    padding: '12px 8px',
+                    borderRadius: '14px',
+                    border: `1px solid var(--border)`,
+                    background: 'rgba(255,255,255,0.03)',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-main)',
+                    fontSize: '0.78rem',
+                    fontWeight: '600',
+                    transition: 'all 0.25s',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                  }}>
+                    <span style={{ fontSize: '1.3rem' }}>{p.icon}</span>
+                    <span>{shareSuccess === 'copied' && p.name === 'Copy Link' ? '✓ Copied!' : p.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -258,6 +376,95 @@ export default function HologramPreviewScreen({ appData, onGuide, onOrder, onBac
           </div>
         )}
       </div>
+
+      {/* QR Code Modal */}
+      {showQR && (
+        <div
+          onClick={() => setShowQR(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: 'fade-in-up 0.25s ease',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(145deg, #0d0720, #1a0d35)',
+              border: '1px solid rgba(168,85,247,0.3)',
+              borderRadius: '24px',
+              padding: '28px 24px',
+              width: '320px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+              boxShadow: '0 0 60px rgba(124,58,237,0.3)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <h3 style={{ fontFamily: 'var(--font-main)', fontWeight: '700', fontSize: '1.1rem' }}>
+                🔮 Hologram QR Code
+              </h3>
+              <button
+                onClick={() => setShowQR(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.08)', border: 'none',
+                  borderRadius: '8px', color: 'white', width: '32px', height: '32px',
+                  cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {qrDataUrl && (
+              <div style={{
+                padding: '12px',
+                borderRadius: '16px',
+                background: '#05020f',
+                border: '1px solid rgba(168,85,247,0.2)',
+                boxShadow: '0 0 30px rgba(168,85,247,0.15)',
+              }}>
+                <img src={qrDataUrl} alt="QR Code" style={{ display: 'block', borderRadius: '8px', width: '200px', height: '200px' }} />
+              </div>
+            )}
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', textAlign: 'center', lineHeight: 1.5 }}>
+              Scan to open this hologram on any device
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <button
+                onClick={downloadQR}
+                className="btn-secondary"
+                style={{ flex: 1, padding: '12px', fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                ⬇ Save QR
+              </button>
+              <button
+                onClick={copyQRLink}
+                style={{
+                  flex: 1, padding: '12px',
+                  borderRadius: '14px',
+                  border: `1px solid ${copySuccess ? 'rgba(34,211,238,0.5)' : 'rgba(168,85,247,0.3)'}`,
+                  background: copySuccess ? 'rgba(34,211,238,0.1)' : 'rgba(124,58,237,0.1)',
+                  color: copySuccess ? '#22d3ee' : '#a855f7',
+                  fontFamily: 'var(--font-main)',
+                  fontSize: '0.88rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {copySuccess ? '✓ Copied!' : '🔗 Copy Link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

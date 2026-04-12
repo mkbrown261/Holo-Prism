@@ -1,0 +1,13 @@
+{
+  "name": "HoloPrism",
+  "short_name": "HoloPrism",
+  "description": "Turn your phone into a hologram projector",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05020f",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/vite.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

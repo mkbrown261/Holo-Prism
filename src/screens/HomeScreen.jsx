@@ -50,7 +50,7 @@ const CATEGORIES = [
   },
 ]
 
-export default function HomeScreen({ onSelect }) {
+export default function HomeScreen({ onSelect, onNavigate }) {
   const [hoveredId, setHoveredId] = useState(null)
 
   return (
@@ -209,9 +209,39 @@ export default function HomeScreen({ onSelect }) {
         ))}
       </div>
 
+      {/* Navigation row — Gift & Events */}
+      <div style={{ display: 'flex', gap: '10px', margin: '16px 16px 0' }}>
+        <button
+          onClick={() => onNavigate('gift')}
+          style={{
+            flex: 1, padding: '14px', borderRadius: '16px',
+            border: '1px solid rgba(244,114,182,0.3)',
+            background: 'rgba(244,114,182,0.06)',
+            color: '#f472b6', fontFamily: 'var(--font-main)',
+            fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+          }}
+        >
+          🎁 Send a Gift
+        </button>
+        <button
+          onClick={() => onNavigate('events')}
+          style={{
+            flex: 1, padding: '14px', borderRadius: '16px',
+            border: '1px solid rgba(251,191,36,0.3)',
+            background: 'rgba(251,191,36,0.06)',
+            color: '#fbbf24', fontFamily: 'var(--font-main)',
+            fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+          }}
+        >
+          🎊 Events
+        </button>
+      </div>
+
       {/* Bottom section — prism order CTA */}
       <div style={{
-        margin: '20px 16px 0',
+        margin: '16px 16px 0',
         padding: '20px',
         borderRadius: '20px',
         background: 'rgba(255,255,255,0.03)',
@@ -235,26 +265,29 @@ export default function HomeScreen({ onSelect }) {
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ fontFamily: 'var(--font-main)', fontWeight: '600', fontSize: '0.9rem', marginBottom: '2px' }}>
-            Don't have a prism?
+            Don&apos;t have a prism?
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-            Order the HoloPrism device for $12.99
+            Order the HoloPrism device from $12.99
           </p>
         </div>
-        <button style={{
-          padding: '10px 16px',
-          borderRadius: '12px',
-          background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-          border: 'none',
-          color: 'white',
-          fontSize: '0.82rem',
-          fontWeight: '600',
-          fontFamily: 'var(--font-main)',
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          boxShadow: '0 2px 12px rgba(124,58,237,0.4)',
-        }}>
-          Shop →
+        <button
+          onClick={() => onNavigate('pricing')}
+          style={{
+            padding: '10px 16px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+            border: 'none',
+            color: 'white',
+            fontSize: '0.82rem',
+            fontWeight: '600',
+            fontFamily: 'var(--font-main)',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 12px rgba(124,58,237,0.4)',
+          }}
+        >
+          View Plans →
         </button>
       </div>
     </div>

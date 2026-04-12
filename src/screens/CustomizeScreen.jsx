@@ -22,15 +22,26 @@ const DEVICES = [
   'OnePlus 12', 'Other Android',
 ]
 
+function formatTime(secs) {
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
 export default function CustomizeScreen({ template = 'rocket', appData, onChange, onPreview, onBack }) {
   const [text, setText] = useState(appData?.customText || 'HAPPY BIRTHDAY')
   const [style, setStyle] = useState(appData?.animationStyle || 'sparkle')
   const [device, setDevice] = useState(appData?.selectedDevice || '')
   const [isRecording, setIsRecording] = useState(false)
   const [hasVoice, setHasVoice] = useState(false)
+  const [voiceBlob, setVoiceBlob] = useState(null)
+  const [recordingTime, setRecordingTime] = useState(0)
   const [uploadedFile, setUploadedFile] = useState(null)
   const [activeTab, setActiveTab] = useState('text')
   const fileRef = useRef()
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
+  const timerRef = useRef(null)
 
   const PreviewComp = TEMPLATE_PREVIEWS[template] || RocketPreview
 
@@ -49,12 +60,46 @@ export default function CustomizeScreen({ template = 'rocket', appData, onChange
     onChange({ selectedDevice: d })
   }
 
-  const handleRecord = () => {
-    setIsRecording(true)
-    setTimeout(() => {
+  const handleRecord = async () => {
+    if (isRecording) {
+      // Stop recording
+      mediaRecorderRef.current?.stop()
+      clearInterval(timerRef.current)
       setIsRecording(false)
-      setHasVoice(true)
-    }, 2500)
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+      mediaRecorder.ondataavailable = e => audioChunksRef.current.push(e.data)
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        setHasVoice(true)
+        setVoiceBlob(blob)
+        setRecordingTime(0)
+        stream.getTracks().forEach(t => t.stop())
+      }
+      mediaRecorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+      timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000)
+      // Auto-stop at 15 seconds
+      setTimeout(() => {
+        if (mediaRecorder.state === 'recording') mediaRecorder.stop()
+        clearInterval(timerRef.current)
+        setIsRecording(false)
+      }, 15000)
+    } catch (err) {
+      alert('Microphone access required for voice messages')
+    }
+  }
+
+  const handleDeleteVoice = () => {
+    setHasVoice(false)
+    setVoiceBlob(null)
+    setRecordingTime(0)
   }
 
   const handleFileUpload = (e) => {
@@ -267,11 +312,10 @@ export default function CustomizeScreen({ template = 'rocket', appData, onChange
         {activeTab === 'voice' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', paddingTop: '16px' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', lineHeight: 1.5 }}>
-              Record a personal voice message to play with your hologram
+              Record a personal voice message to play with your hologram (max 15 seconds)
             </p>
             <button
               onClick={handleRecord}
-              disabled={isRecording}
               style={{
                 width: '100px', height: '100px',
                 borderRadius: '50%',
@@ -281,7 +325,7 @@ export default function CustomizeScreen({ template = 'rocket', appData, onChange
                 border: isRecording
                   ? '2px solid #ef4444'
                   : hasVoice ? '2px solid #22d3ee' : '2px solid rgba(168,85,247,0.5)',
-                cursor: isRecording ? 'not-allowed' : 'pointer',
+                cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '2.5rem',
                 transition: 'all 0.3s ease',
@@ -289,15 +333,20 @@ export default function CustomizeScreen({ template = 'rocket', appData, onChange
                 boxShadow: isRecording ? '0 0 24px rgba(239,68,68,0.4)' : hasVoice ? '0 0 16px rgba(34,211,238,0.3)' : 'none',
               }}
             >
-              {isRecording ? '⏺' : hasVoice ? '✅' : '🎤'}
+              {isRecording ? '⏹' : hasVoice ? '✅' : '🎤'}
             </button>
             <p style={{ fontFamily: 'var(--font-main)', fontWeight: '600', fontSize: '0.9rem', color: isRecording ? '#ef4444' : hasVoice ? '#22d3ee' : 'var(--text-muted)' }}>
-              {isRecording ? 'Recording…' : hasVoice ? 'Voice message saved!' : 'Tap to record'}
+              {isRecording ? `Recording… ${formatTime(recordingTime)}` : hasVoice ? 'Voice message saved!' : 'Tap to record'}
             </p>
+            {isRecording && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                Tap again to stop · Auto-stops at 0:15
+              </p>
+            )}
             {hasVoice && (
               <div style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem' }}>🎵 Voice message (2.5s)</span>
-                <button className="btn-ghost" style={{ color: '#ef4444', padding: '4px 8px', fontSize: '0.8rem' }} onClick={() => setHasVoice(false)}>Delete</button>
+                <span style={{ fontSize: '0.85rem' }}>🎵 Voice message recorded</span>
+                <button className="btn-ghost" style={{ color: '#ef4444', padding: '4px 8px', fontSize: '0.8rem' }} onClick={handleDeleteVoice}>Delete</button>
               </div>
             )}
           </div>

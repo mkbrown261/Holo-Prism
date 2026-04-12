@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import StarsBg from '../components/StarsBg'
 import HoloPrismLogo from '../components/HoloPrismLogo'
 
@@ -9,6 +9,8 @@ export default function AuthScreen({ onAuth, onDemo }) {
   const [verifying, setVerifying] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
   const [error, setError] = useState('')
+  const [resendCountdown, setResendCountdown] = useState(60)
+  const [resendDisabled, setResendDisabled] = useState(true)
 
   const handleSendCode = () => {
     if (!input.trim()) { setError('Please enter your email or phone'); return }
@@ -17,16 +19,54 @@ export default function AuthScreen({ onAuth, onDemo }) {
     setMode('verify')
   }
 
+  // Start countdown when entering verify mode
+  useEffect(() => {
+    if (mode === 'verify') {
+      setResendCountdown(60)
+      setResendDisabled(true)
+      const t = setInterval(() => {
+        setResendCountdown(c => {
+          if (c <= 1) { clearInterval(t); setResendDisabled(false); return 0 }
+          return c - 1
+        })
+      }, 1000)
+      return () => clearInterval(t)
+    }
+  }, [mode])
+
+  const handleResend = () => {
+    if (resendDisabled) return
+    setResendCountdown(60)
+    setResendDisabled(true)
+    setCode(['', '', '', '', '', ''])
+    setError('')
+    // Restart countdown
+    const t = setInterval(() => {
+      setResendCountdown(c => {
+        if (c <= 1) { clearInterval(t); setResendDisabled(false); return 0 }
+        return c - 1
+      })
+    }, 1000)
+  }
+
   const handleCodeChange = (val, idx) => {
     const next = [...code]
     next[idx] = val.replace(/[^0-9]/g, '').slice(-1)
     setCode(next)
+    setError('')
     if (val && idx < 5) {
       document.getElementById(`code-${idx + 1}`)?.focus()
     }
     if (next.every(d => d !== '') && idx === 5) {
-      // Auto verify after all digits
+      // Validate: codes starting with 0000 are invalid
+      const fullCode = next.join('')
       setTimeout(() => {
+        if (fullCode.startsWith('0000')) {
+          setError('Invalid code. Please try again.')
+          setCode(['', '', '', '', '', ''])
+          setTimeout(() => document.getElementById('code-0')?.focus(), 50)
+          return
+        }
         setVerifying(true)
         setTimeout(() => { setVerifying(false); onAuth() }, 1000)
       }, 200)
@@ -165,7 +205,7 @@ export default function AuthScreen({ onAuth, onDemo }) {
         {mode === 'verify' && (
           <>
             <button className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '0 0 8px' }}
-              onClick={() => { setMode(input.includes('@') ? 'email' : 'phone'); setCode(['','','','','','']) }}>
+              onClick={() => { setMode(input.includes('@') ? 'email' : 'phone'); setCode(['','','','','','']); setError('') }}>
               ← Back
             </button>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5 }}>
@@ -190,7 +230,7 @@ export default function AuthScreen({ onAuth, onDemo }) {
                     fontWeight: '700',
                     fontFamily: 'var(--font-main)',
                     borderRadius: '12px',
-                    border: digit ? '1.5px solid rgba(168,85,247,0.6)' : '1px solid var(--border)',
+                    border: error ? '1.5px solid #f87171' : digit ? '1.5px solid rgba(168,85,247,0.6)' : '1px solid var(--border)',
                     background: digit ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.04)',
                     color: 'white',
                     outline: 'none',
@@ -201,13 +241,36 @@ export default function AuthScreen({ onAuth, onDemo }) {
                 />
               ))}
             </div>
+            {error && (
+              <div style={{ textAlign: 'center', color: '#f87171', fontSize: '0.88rem', animation: 'fade-in-up 0.2s ease' }}>
+                ✗ {error}
+              </div>
+            )}
             {verifying && (
               <div style={{ textAlign: 'center', color: '#a855f7', fontSize: '0.9rem', animation: 'pulse-glow 1s ease infinite' }}>
                 ✓ Verifying...
               </div>
             )}
             <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-              Didn't receive it? <button className="btn-ghost" style={{ color: '#a855f7', padding: '0', display: 'inline' }}>Resend code</button>
+              Didn&apos;t receive it?{' '}
+              <button
+                onClick={handleResend}
+                disabled={resendDisabled}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: resendDisabled ? 'var(--text-muted)' : '#a855f7',
+                  padding: '0',
+                  display: 'inline',
+                  cursor: resendDisabled ? 'default' : 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 'inherit',
+                  fontWeight: '600',
+                  textDecoration: resendDisabled ? 'none' : 'underline',
+                }}
+              >
+                {resendDisabled ? `Resend in ${resendCountdown}s` : 'Resend code'}
+              </button>
             </p>
           </>
         )}
